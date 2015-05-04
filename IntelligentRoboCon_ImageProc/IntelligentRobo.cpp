@@ -1,6 +1,7 @@
 #include <cstdio>
 #include "IntelligentRobo.h"
 
+#define UNUSE_COM
 
 IntelligentRobo::IntelligentRobo()
 {
@@ -20,14 +21,19 @@ IntelligentRobo::IntelligentRobo()
 	mCameraCenterY = mCameraHeight / 2;
 
 	mSequence = SEQ_WAIT;
+
+#ifndef UNUSE_COM
 	mSerial = new SerialCom;
-	mSerial->open(3, 38400);
+	mSerial->open(3, 9600);
+#endif
 }
 
 
 IntelligentRobo::~IntelligentRobo()
 {
+#ifndef UNUSE_COM
 	delete mSerial;
+#endif
 }
 
 
@@ -103,13 +109,19 @@ void IntelligentRobo::intelligence(const BallData aBalls[], int aNumOfBalls)
 			txData.Bit.leftOrRight = (x > 0) ? 0 : 1;
 			txData.Bit.speed = (abs(x) < 8) ? 1 : 2;
 		}
-		/*printf("%d %d %d %d\n",
+		/*printf("%d %d %d %d %4d %4d %4d %4d\n",
 			txData.Bit.moveFlag,
 			txData.Bit.fowardOrBack,
 			txData.Bit.leftOrRight,
-			txData.Bit.speed);*/
+			txData.Bit.speed,
+			mCameraCenterX,
+			mCameraCenterY,
+			x,
+			y);*/
 	}
 
 	/* ‚±‚±‚ç‚Ö‚ñ‚ÅtxData‚ð‘—M‚·‚é */
+#ifndef UNUSE_COM
 	mSerial->sendChar(txData.whole);
+#endif
 }

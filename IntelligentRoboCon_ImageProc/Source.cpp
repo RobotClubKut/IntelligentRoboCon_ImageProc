@@ -31,15 +31,15 @@
 #define YELLOW_HUE_THRESH_UPPER 35
 #define YELLOW_HUE_THRESH_LOWER 20
 #define YELLOW_SATURATION_THRESH_UPPER 190
-#define YELLOW_SATURATION_THRESH_LOWER 40
-#define YELLOW_VALUE_THRESH_UPPER 255
-#define YELLOW_VALUE_THRESH_LOWER 110
+#define YELLOW_SATURATION_THRESH_LOWER 150
+#define YELLOW_VALUE_THRESH_UPPER 200
+#define YELLOW_VALUE_THRESH_LOWER 70
 
 
 
 #define COMBUF_SIZE 255
 
-
+#if 0
 void cvtWindow2RobotView(int& ax, int& ay)
 {
 	static int CENTER_X = CAMERA_WIDTH_PX / 2;
@@ -68,23 +68,37 @@ void intelligence(const BallData aBalls[], int aNumOfBalls)
 		// ê≥ñ Ç…É{Å[ÉãÇ™Ç†ÇÈ
 	}
 }
+#endif
 
+void colorTest(cv::Mat& aSorce)
+{
+	std::vector<cv::Mat> channel;
+	cv::Mat hsvImg, hue1, hue2, hue, saturation1, saturation2, saturation, value1, value2, value, hue_saturation;
+	cv::cvtColor(aSorce, hsvImg, CV_BGR2HSV);
+	cv::Point center(aSorce.cols - aSorce.cols / 6, aSorce.rows / 6);
+	cv::circle(aSorce, center, 20, cv::Scalar(0, 0, 255));
+	cv::split(hsvImg, channel);
+	printf("%4d %4d %4d\n", 
+		channel[0].at<unsigned char>(center), channel[1].at<unsigned char>(center), channel[2].at<unsigned char>(center));
+}
 
 int main(int argc, const char* argv[])
 {
-	cv::Mat src, img, gray, binData;
+	cv::Mat src, img, gray, binRed, binBlue, binYellow;
 
 	//Robot::SerialCom com("COM3", 9600);
 	//char comBuf[COMBUF_SIZE];
 
-	cv::VideoCapture cap(0);
+	cv::VideoCapture cap(1);
 	if (!cap.isOpened()){
 		return -1;
 	}
 	cap.set(CV_CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH_PX);
 	cap.set(CV_CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT_PX);
 
-	BallData ball[10];
+	BallData ballRed[10];
+	BallData ballBlue[10];
+	BallData ballYellow[10];
 	ThreshData threshRed = { 0 };
 	threshRed.hueUpper = RED_HUE_THRESH_UPPER;
 	threshRed.hueLower = RED_HUE_THRESH_LOWER;
@@ -93,18 +107,25 @@ int main(int argc, const char* argv[])
 	threshRed.valUpper = 255;
 	threshRed.valLower = RED_VALUE_THRESH;
 	ThreshData threshBlue = { 0 };
-	threshBlue.hueUpper = BLUE_HUE_THRESH_UPPER;
-	threshBlue.hueLower = BLUE_HUE_THRESH_LOWER;
-	threshBlue.satUpper = BLUE_SATURATION_THRESH_UPPER;
-	threshBlue.satLower = BLUE_SATURATION_THRESH_LOWER;
-	threshBlue.valUpper = BLUE_VALUE_THRESH_UPPER;
-	threshBlue.valLower = BLUE_VALUE_THRESH_LOWER;
+	threshBlue.hueUpper = 120;
+	threshBlue.hueLower = 100;
+	threshBlue.satUpper = 255;
+	threshBlue.satLower = 180;
+	threshBlue.valUpper = 150;
+	threshBlue.valLower = 50;
+	ThreshData threshYellow = { 0 };
+	threshYellow.hueUpper = 28;
+	threshYellow.hueLower = 13;
+	threshYellow.satUpper = 220;
+	threshYellow.satLower = 100;
+	threshYellow.valUpper = 200;
+	threshYellow.valLower = 50;
 
 	BallDetect detect(10, 200);
 
 	cv::namedWindow("result", cv::WINDOW_AUTOSIZE);
-	cv::namedWindow("red", cv::WINDOW_AUTOSIZE);
-	//cv::namedWindow("blue", cv::WINDOW_AUTOSIZE);
+	//cv::namedWindow("red", cv::WINDOW_AUTOSIZE);
+	cv::namedWindow("blue", cv::WINDOW_AUTOSIZE);
 	//cv::namedWindow("yellow", cv::WINDOW_AUTOSIZE);
 
 	IntelligentRobo robot;
@@ -112,13 +133,20 @@ int main(int argc, const char* argv[])
 	int numOfBalls = 0;
 	while (true){
 		cap >> src;
-		
-		detect.threshold(src, binData, threshRed);
-		detect.getBallData(binData, ball, numOfBalls, &src);
+		//printf("%4d %4d\n", src.cols, src.rows);
+		//detect.threshold(src, binRed, threshRed);
+		detect.threshold(src, binBlue, threshBlue);
+		//detect.threshold(src, binYellow, threshYellow);
+		//detect.getBallData(binRed, ball, numOfBalls, &src);
+		detect.getBallData(binBlue, ballBlue, numOfBalls, &src);
+		//detect.getBallData(binYellow, ballYellow, numOfBalls, &src);
 		//printf("ok\n");
-		robot.intelligence(ball, numOfBalls);
+		//robot.intelligence(ball, numOfBalls);
+		colorTest(src);
 		cv::imshow("result", src);
-		cv::imshow("red", binData);
+		//cv::imshow("red", binRed);
+		cv::imshow("blue", binBlue);
+		//cv::imshow("yellow", binYellow);
 		if (cv::waitKey(1) >= 0) break;
 	}
 	cv::destroyAllWindows();

@@ -45,11 +45,11 @@ private:
 	enum ESeq
 	{
 		SEQ_WAIT = 0,
-		SEQ_STOP,
-		SEQ_RUN,
-		SEQ_SEARCH,
+		SEQ_TRACE,
 		SEQ_APPROACH,
-		SEQ_TAKE,
+		SEQ_SEARCH,
+		SEQ_CATCH,
+		SEQ_SHOOT,
 	};
 	ESeq mSequence;
 	void cvtCamera2Robot(int& ax, int& ay);
