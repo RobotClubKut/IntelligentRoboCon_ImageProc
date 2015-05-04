@@ -21,6 +21,7 @@ IntelligentRobo::IntelligentRobo()
 	mCameraCenterY = mCameraHeight / 2;
 
 	mSequence = SEQ_WAIT;
+	mNumOfTookBalls = 0;
 
 #ifndef UNUSE_COM
 	mSerial = new SerialCom;
@@ -39,10 +40,85 @@ IntelligentRobo::~IntelligentRobo()
 
 void IntelligentRobo::cvtCamera2Robot(int& ax, int& ay)
 {
-	ax -= mCameraCenterX;
-	ay -= mCameraCenterY;
+	//ax -= mCameraCenterX;
+	//ay -= mCameraCenterY;
+	ax -= 320;
+	ay -= 240;
 }
 
+
+void IntelligentRobo::approachTheBall(const BallData aBalls[], int aNumOfBalls, TransmitData& aTxData)
+{
+	if (mNumOfTookBalls >= 15)
+	{
+		mSequence = SEQ_TRACE;
+		aTxData.Bit.speed = 0;
+		return;
+	}
+	if (aNumOfBalls == 0)
+	{
+		//ボールが見当たらないので線上に戻って前進
+		return;
+	}
+	// 取るボールを選択(一番近いやつ)
+	int nearestBallIndex = 0;
+	for (int i = 1; i < aNumOfBalls; i++)
+	{
+		if (aBalls[nearestBallIndex].y < aBalls[i].y)
+		{
+			nearestBallIndex = i;
+		}
+	}
+	int x = aBalls[nearestBallIndex].x;
+	int y = aBalls[nearestBallIndex].y;
+	cvtCamera2Robot(x, y);
+
+	static int frontCounter = 0;	// 正面にいる状態のカウンタ
+	if (abs(x) > FRONT_MARGIN_PX)
+	{
+		// 一番近いボールが正面でない
+		aTxData.Bit.moveFlag = 0;
+		aTxData.Bit.leftOrRight = (x > 0) ? 0 : 1;
+		aTxData.Bit.speed = (abs(x) < FRONT_MARGIN_PX + 10) ? 1 : 2;
+		frontCounter = 0;
+	}
+	else{
+		// おそらく正面にボールがある
+		frontCounter++;
+		if (frontCounter < 5)
+		{
+			// 旋回しすぎているかもしれないので止まってちょっと待つ
+			aTxData.Bit.speed = 0;
+			return;
+		}
+		// 絶対正面にボールがある
+		static const int MIN_YPOS = TAKE_YPOS_PX - TAKE_YPOS_MARGIN_PX;
+		static const int MAX_YPOS = TAKE_YPOS_PX + TAKE_YPOS_MARGIN_PX;
+		if (MIN_YPOS < y && y < MAX_YPOS)
+		{
+			// ボールがハンドでとれる位置にある
+			aTxData.Bit.speed = 0;
+			mSequence = SEQ_TAKE;
+			return;
+		}
+		// 前進または後退してハンドでとれる距離に移動する
+		aTxData.Bit.moveFlag = 1;
+		aTxData.Bit.fowardOrBack = (y < TAKE_YPOS_PX) ? 1 : 0;
+		aTxData.Bit.speed = 1;
+	}
+}
+
+
+void IntelligentRobo::lineTrace(TransmitData& aTxData)
+{
+
+}
+
+
+void IntelligentRobo::takeTheBall(TransmitData& aTxData)
+{
+
+}
 
 
 void IntelligentRobo::intelligence(const BallData aBalls[], int aNumOfBalls)
@@ -52,6 +128,32 @@ void IntelligentRobo::intelligence(const BallData aBalls[], int aNumOfBalls)
 	rxData.whole = 0;
 	mSequence = SEQ_APPROACH;
 
+	switch (mSequence)
+	{
+	case SEQ_WAIT:
+		break;
+	case SEQ_TRACE:
+		lineTrace(txData);
+		break;
+	case SEQ_APPROACH:
+		approachTheBall(aBalls, aNumOfBalls, txData);
+		break;
+	case SEQ_TAKE:
+		takeTheBall(txData);
+		break;
+	default:
+		std::cerr << "意味わからん" << std::endl;
+	}
+
+	printf("mode:%d  moveFlag:%d  ForB:%d  LorR:%d  speed:%d\n",
+		txData.Bit.mode, 
+		txData.Bit.moveFlag, 
+		txData.Bit.fowardOrBack, 
+		txData.Bit.leftOrRight, 
+		txData.Bit.speed
+		);
+
+#if 0
 	if (aNumOfBalls <= 0)
 	{
 		return;
@@ -119,9 +221,18 @@ void IntelligentRobo::intelligence(const BallData aBalls[], int aNumOfBalls)
 			x,
 			y);*/
 	}
+#endif
 
 	/* ここらへんでtxDataを送信する */
 #ifndef UNUSE_COM
 	mSerial->sendChar(txData.whole);
 #endif
+}
+
+void IntelligentRobo::drawMark(cv::Mat& aImg)
+{
+	int centerX = aImg.cols >> 1;
+	int centerY = aImg.rows >> 1;
+	cv::line(aImg, cv::Point(centerX, 0), cv::Point(centerX, aImg.rows), cv::Scalar(0, 0, 255));
+	cv::line(aImg, cv::Point(0, centerY + TAKE_YPOS_PX), cv::Point(aImg.cols, centerY + TAKE_YPOS_PX), cv::Scalar(0, 0, 255));
 }

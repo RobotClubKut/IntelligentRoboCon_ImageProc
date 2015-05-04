@@ -3,8 +3,15 @@
 #include "SerialCom.h"			/* 通信 */
 
 /* カメラ */
-#define CAMERA_WIDTH_PX 320
-#define CAMERA_HEIGHT_PX 240
+#define CAMERA_WIDTH_PX 640
+#define CAMERA_HEIGHT_PX 480
+
+/* ボールが正面にあるか否かを判断する範囲 マージン */
+#define FRONT_MARGIN_PX 18
+
+/* 取るボールのy座標とマージン */
+#define TAKE_YPOS_PX 150
+#define TAKE_YPOS_MARGIN_PX 10
 
 
 /* 全体をこのPCが制御するか、PSoCのマスターが制御するかの状態 */
@@ -35,6 +42,7 @@ public:
 	IntelligentRobo();
 	~IntelligentRobo();
 	void intelligence(const BallData aBalls[], int aNumOfBall);
+	void drawMark(cv::Mat& aImg);
 private:
 	SerialCom *mSerial;
 	int mCameraWidth;
@@ -48,10 +56,15 @@ private:
 		SEQ_TRACE,
 		SEQ_APPROACH,
 		SEQ_SEARCH,
-		SEQ_CATCH,
+		SEQ_TAKE,
 		SEQ_SHOOT,
 	};
 	ESeq mSequence;
+
+	int mNumOfTookBalls;
 	void cvtCamera2Robot(int& ax, int& ay);
+	void approachTheBall(const BallData aBalls[], int aNumOfBalls, TransmitData& aTxData);
+	void lineTrace(TransmitData& aTxData);
+	void takeTheBall(TransmitData& aTxData);
 };
 
