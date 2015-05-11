@@ -141,33 +141,6 @@ void BallDetect::threshold(const cv::Mat& aSorce, cv::Mat& aDest, const ThreshDa
 	cv::Mat hsvImg, hue1, hue2, hue, saturation1, saturation2, saturation, value1, value2, value, hue_saturation;
 	cv::cvtColor(aSorce, hsvImg, CV_BGR2HSV);
 	cv::split(hsvImg, channel);
-
-	/*
-	cv::threshold(channel[0], hue1, YELLOW_HUE_THRESH_UPPER, 255, CV_THRESH_BINARY_INV);
-	cv::threshold(channel[0], hue2, YELLOW_HUE_THRESH_LOWER, 255, CV_THRESH_BINARY);
-	cv::threshold(channel[1], saturation1, YELLOW_SATURATION_THRESH_UPPER, 255, CV_THRESH_BINARY_INV);
-	cv::threshold(channel[1], saturation2, YELLOW_SATURATION_THRESH_LOWER, 255, CV_THRESH_BINARY);
-	cv::threshold(channel[2], value1, YELLOW_VALUE_THRESH_UPPER, 255, CV_THRESH_BINARY_INV);
-	cv::threshold(channel[2], value2, YELLOW_VALUE_THRESH_LOWER, 255, CV_THRESH_BINARY);
-	cv::bitwise_and(hue1, hue2, hue);
-	cv::bitwise_and(saturation1, saturation2, saturation);
-	cv::bitwise_and(value1, value2, value);
-	cv::bitwise_and(hue, saturation, hue_saturation);
-	cv::bitwise_and(hue_saturation, value, aDest);
-	*/
-	/*
-	cv::threshold(channel[0], hue1, BLUE_HUE_THRESH_UPPER, 255, CV_THRESH_BINARY_INV);
-	cv::threshold(channel[0], hue2, BLUE_HUE_THRESH_LOWER, 255, CV_THRESH_BINARY);
-	cv::threshold(channel[1], saturation1, BLUE_SATURATION_THRESH_UPPER, 255, CV_THRESH_BINARY_INV);
-	cv::threshold(channel[1], saturation2, BLUE_SATURATION_THRESH_LOWER, 255, CV_THRESH_BINARY);
-	cv::threshold(channel[2], value1, BLUE_VALUE_THRESH_UPPER, 255, CV_THRESH_BINARY_INV);
-	cv::threshold(channel[2], value2, BLUE_VALUE_THRESH_LOWER, 255, CV_THRESH_BINARY);
-	cv::bitwise_and(hue1, hue2, hue);
-	cv::bitwise_and(saturation1, saturation2, saturation);
-	cv::bitwise_and(value1, value2, value);
-	cv::bitwise_and(hue, saturation, hue_saturation);
-	cv::bitwise_and(hue_saturation, value, aDest);*/
-	
 	
 	if (thresh.hueUpper > thresh.hueLower)
 	{

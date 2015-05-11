@@ -12,70 +12,15 @@
 /* 真ん中と判断するのに用いるマージン */
 #define CENTER_MARGIN_PX 6
 
-
-/*
- * 赤青黄の各色の閾値設定
- */
-#define RED_HUE_THRESH_UPPER 6
-#define RED_HUE_THRESH_LOWER 170
-#define RED_SATURATION_THRESH 60
-#define RED_VALUE_THRESH 80
-
-#define BLUE_HUE_THRESH_UPPER 120
-#define BLUE_HUE_THRESH_LOWER 100
-#define BLUE_SATURATION_THRESH_UPPER 255
-#define BLUE_SATURATION_THRESH_LOWER 245
-#define BLUE_VALUE_THRESH_UPPER 255
-#define BLUE_VALUE_THRESH_LOWER 0
-
-#define YELLOW_HUE_THRESH_UPPER 35
-#define YELLOW_HUE_THRESH_LOWER 20
-#define YELLOW_SATURATION_THRESH_UPPER 190
-#define YELLOW_SATURATION_THRESH_LOWER 150
-#define YELLOW_VALUE_THRESH_UPPER 200
-#define YELLOW_VALUE_THRESH_LOWER 70
-
-
-
 #define COMBUF_SIZE 255
 
-#if 0
-void cvtWindow2RobotView(int& ax, int& ay)
-{
-	static int CENTER_X = CAMERA_WIDTH_PX / 2;
-	static int CENTER_Y = CAMERA_HEIGHT_PX / 2;
-
-	ax -= CENTER_X;
-	ay -= CENTER_Y;
-}
-
-
-void intelligence(const BallData aBalls[], int aNumOfBalls)
-{
-	static int sequence = 0;
-
-	static const int CENTER_X = CAMERA_WIDTH_PX / 2;
-	static const int CENTER_Y = CAMERA_HEIGHT_PX / 2;
-	static const int RANGE_LOWER = CENTER_X - (CENTER_MARGIN_PX / 2);
-	static const int RANGE_UPPER = CENTER_X + (CENTER_MARGIN_PX / 2);
-
-	int targetX = aBalls[0].x;
-	int targetY = aBalls[0].y;
-	cvtWindow2RobotView(targetX, targetY);
-
-	if (aNumOfBalls > 0 && abs(targetX))
-	{
-		// 正面にボールがある
-	}
-}
-#endif
 
 void colorTest(cv::Mat& aSorce)
 {
 	std::vector<cv::Mat> channel;
 	cv::Mat hsvImg, hue1, hue2, hue, saturation1, saturation2, saturation, value1, value2, value, hue_saturation;
 	cv::cvtColor(aSorce, hsvImg, CV_BGR2HSV);
-	cv::Point center(aSorce.cols - aSorce.cols / 6, aSorce.rows / 6);
+	cv::Point center(aSorce.cols / 2, aSorce.rows / 2);
 	cv::circle(aSorce, center, 20, cv::Scalar(0, 0, 255));
 	cv::split(hsvImg, channel);
 	printf("%4d %4d %4d\n", 
@@ -86,10 +31,7 @@ int main(int argc, const char* argv[])
 {
 	cv::Mat src, img, gray, binRed, binBlue, binYellow;
 
-	//Robot::SerialCom com("COM3", 9600);
-	//char comBuf[COMBUF_SIZE];
-
-	cv::VideoCapture cap(1);
+	cv::VideoCapture cap(0);
 	if (!cap.isOpened()){
 		return -1;
 	}
@@ -114,38 +56,55 @@ int main(int argc, const char* argv[])
 	threshBlue.valUpper = 255;
 	threshBlue.valLower = 50;
 	ThreshData threshYellow = { 0 };
-	threshYellow.hueUpper = 28;
+	threshYellow.hueUpper = 40;
 	threshYellow.hueLower = 13;
 	threshYellow.satUpper = 220;
-	threshYellow.satLower = 100;
-	threshYellow.valUpper = 200;
+	threshYellow.satLower = 50;
+	threshYellow.valUpper = 255;
 	threshYellow.valLower = 50;
 
 	BallDetect detect(10, 200);
 
 	cv::namedWindow("result", cv::WINDOW_AUTOSIZE);
-	//cv::namedWindow("red", cv::WINDOW_AUTOSIZE);
+	cv::namedWindow("red", cv::WINDOW_AUTOSIZE);
 	cv::namedWindow("blue", cv::WINDOW_AUTOSIZE);
-	//cv::namedWindow("yellow", cv::WINDOW_AUTOSIZE);
+	cv::namedWindow("yellow", cv::WINDOW_AUTOSIZE);
 
 	IntelligentRobo robot;
 
-	int numOfBalls = 0;
+	int numOfRed = 0, numOfYellow = 0, numOfBlue = 0;
 	while (true){
 		cap >> src;
-		//printf("%4d %4d\n", src.cols, src.rows);
-		//detect.threshold(src, binRed, threshRed);
+		detect.threshold(src, binRed, threshRed);
 		detect.threshold(src, binBlue, threshBlue);
-		//detect.threshold(src, binYellow, threshYellow);
-		//detect.getBallData(binRed, ballRed, numOfBalls, &src);
-		detect.getBallData(binBlue, ballBlue, numOfBalls, &src);
-		//detect.getBallData(binYellow, ballYellow, numOfBalls, &src);
-		//printf("ok\n");
-		//robot.intelligence(ballRed, numOfBalls);
-		colorTest(src);
-		//robot.drawMark(src);
+		detect.threshold(src, binYellow, threshYellow);
+		detect.getBallData(binRed, ballRed, numOfRed, &src);
+		detect.getBallData(binBlue, ballBlue, numOfBlue, &src);
+		detect.getBallData(binYellow, ballYellow, numOfYellow, &src);
+		
+		// 各色から一番大きいのを選ぶ
+		BallData *maxBall = NULL;
+		if (numOfRed) { maxBall = ballRed; }
+		if (numOfBlue && maxBall != NULL)
+		{
+			if (maxBall->numOfPixels < ballBlue[0].numOfPixels)
+			{
+				maxBall = ballBlue;
+			}
+		}
+		if (numOfYellow && maxBall != NULL)
+		{
+			if (maxBall->numOfPixels < ballYellow[0].numOfPixels)
+			{
+				maxBall = ballYellow;
+			}
+		}
+		
+		robot.intelligence(maxBall, (maxBall != NULL) ? 1:0);
+		//colorTest(src);
+		robot.drawMark(src);
 		cv::imshow("result", src);
-		//cv::imshow("red", binRed);
+		cv::imshow("red", binRed);
 		cv::imshow("blue", binBlue);
 		//cv::imshow("yellow", binYellow);
 		if (cv::waitKey(1) >= 0) break;
