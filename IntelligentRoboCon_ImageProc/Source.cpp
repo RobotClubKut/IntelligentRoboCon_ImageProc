@@ -18,8 +18,8 @@ using namespace cv;
 #define COMBUF_SIZE 255
 
 /* オプションでどれかひとつお選びいただけます */
-#define OVERALL
-//#define COLOR_TEST
+//#define OVERALL
+#define COLOR_TEST
 //#define IMGPROC_TEST
 
 

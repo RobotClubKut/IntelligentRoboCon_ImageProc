@@ -431,7 +431,7 @@ NEXT_MODE IntelligentRobo::lineTrace(Mat& aSrc, uint16& aRxData, uint16& aTxData
 	int lines[numOfLines];
 	Mat binImg;
 	Mat src = aSrc;
-	unsigned char order1 = 0, order2 = 0;
+	unsigned char order1 = 90, order2 = 0;
 	int val = 0;
 	static int state = 0;
 	int ret = 0;
@@ -527,8 +527,11 @@ NEXT_MODE IntelligentRobo::lineTrace(Mat& aSrc, uint16& aRxData, uint16& aTxData
 		{
 			if (counter++ >= limit)
 			{
-				order1 = 90;
-				order2 = 0;
+				//order1 = 90;
+				//order2 = 0;
+				order1 = 1;
+				order2 = 10;
+				
 				state = 0;
 				mState++;
 				/*if (mState == 2)
@@ -697,6 +700,8 @@ NEXT_MODE IntelligentRobo::seek(Mat& aSrc, uint16 aRxData, uint16& aTxData)
 	//static int state = 1;
 	static bool apr = false;
 	int ret = 0;
+	static int step = 0;
+	const static int STEP_LIMIT = 5;
 
 	// distance of nearest ball
 	// front right left
@@ -801,6 +806,11 @@ NEXT_MODE IntelligentRobo::seek(Mat& aSrc, uint16 aRxData, uint16& aTxData)
 				{
 					counter = 0;
 					mSeekState++;
+					step++;
+					if (step >= STEP_LIMIT)
+					{
+						mSeekState = 7;
+					}
 				}
 			}
 			else{
