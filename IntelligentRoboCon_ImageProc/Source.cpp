@@ -58,7 +58,7 @@ void colorTest(cv::Mat& aSorce, BallDetect& detect, ThreshData& aRed, ThreshData
 	cv::Point center(aSorce.cols / 2, aSorce.rows / 2);
 	cv::circle(aSorce, center, 20, cv::Scalar(0, 0, 255));
 	cv::split(hsvImg, channel);
-	printf("%4d %4d %4d\n", 
+	printf("%4d %4d %4d\n",
 		channel[0].at<unsigned char>(center), channel[1].at<unsigned char>(center), channel[2].at<unsigned char>(center));
 	detect.threshold(aSorce, binRed, aRed);
 	imshow("red", binRed);
@@ -84,6 +84,23 @@ void lineTraceTest(Mat& aSrc, Mat& aDst)
 	cout << inclination << endl;
 }
 #endif /* IMGPROC_TEST */
+
+//領域外を塗りつぶす
+//引数 y0, y1
+cv::Mat fillOutside(int y0, int y1、cv::Mat src){
+	cv::Mat result;
+	if(y0 > y1){
+		y0 = y1;
+	}
+	for(int y = 0; y < y0; ++y){
+		for(int x = 0; x < src.cols; ++x){
+			// 画像のチャネル数分だけループ。白黒の場合は1回、カラーの場合は3回　　　　　
+			for(int c = 0; c < src.channels(); ++c){
+				src.data[ y * src.step + x * src.elemSize() + c ] = 0xff;
+			}
+		}
+	}
+}
 
 int main(int argc, const char* argv[])
 {
@@ -122,6 +139,8 @@ int main(int argc, const char* argv[])
 	int numOfRed = 0, numOfYellow = 0, numOfBlue = 0;
 	while (true){
 		cap >> src;
+		//ここで塗りつぶす
+
 		/*
 		detect.threshold(src, binRed, threshRed);
 		detect.threshold(src, binBlue, threshBlue);
