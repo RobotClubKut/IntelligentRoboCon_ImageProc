@@ -7,6 +7,7 @@
 #include <Windows.h>
 #include "Labeling.h"
 
+using namespace cv;
 
 /* PIXELES_THRESHˆÈ‰º‚Ì‰æ‘f‚Ì‰ò‚ð‚Í‚¶‚­ */
 #define DEFAULT_PIXELES_THRESH 300
@@ -37,8 +38,8 @@ public:
 	BallDetect(int aLimitOfBall);
 	BallDetect(int aLimitOfBall, int aAreaPixelThresh);
 	~BallDetect();
-	void getBallData(const cv::Mat& aSorce, BallData aResult[], int& aNumOfBall);
-	void getBallData(const cv::Mat& aSorce, BallData aResult[], int& aNumOfBall, cv::Mat *aResultImg);
+	void getBallData(cv::Mat& aSorce, BallData aResult[], int& aNumOfBall);
+	void getBallData(cv::Mat& aSorce, BallData aResult[], int& aNumOfBall, cv::Mat& aResultImg);
 	void threshold(const cv::Mat& aSorce, cv::Mat& aDest, const ThreshData& thresh);
 	void setAreaPixelThresh(const int aValue);
 private:

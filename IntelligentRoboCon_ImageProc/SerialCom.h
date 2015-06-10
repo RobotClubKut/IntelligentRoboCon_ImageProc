@@ -2,7 +2,10 @@
 
 #include <thread>
 #include <mutex>
-#include <windows.h>
+#include <deque>
+
+using namespace std;
+
 
 class SerialCom
 {
@@ -10,11 +13,12 @@ public:
 	SerialCom();
 	SerialCom(int aRxBufferSize);
 	~SerialCom();
-	int open(int aSerialPortNum, int aBoundRate);
+	int open(char *aSerialPortNum, int aBoundRate);
 	int close();
 	int sendArray(unsigned char *aTxData, int aTxDataSize);
 	int sendChar(unsigned char aTxChar);
 	int readRxBuffer(unsigned char *aReadBuffer, int aReadBufferSize);
+	bool getLastRxData(unsigned char& aCommand, unsigned short& aData);
 	int clearRxBuffer();
 	int test();
 private:
@@ -40,11 +44,5 @@ private:
 	unsigned char *mRxBuffer;
 	int mRxBufLength;
 	int mRxBufferSize;
-
-	/* èëÇ´çûÇ› 
-	unsigned char *mTxBuffer;
-	int mTxBufferSize;
-	int mTxWriteIndex;
-	int mUnWroteDataSize;*/
-	
+	deque<unsigned char> mRingBuf;
 };

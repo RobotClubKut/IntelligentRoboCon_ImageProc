@@ -3,6 +3,8 @@
 #include <cstdio>
 #include <memory>
 #include "SerialCom.h"
+#include <tchar.h>
+#include <windows.h>
 
 
 SerialCom::SerialCom()
@@ -53,25 +55,17 @@ void SerialCom::threadMain()
 			return;
 		}
 
-		if (readBytes > 0)
+		for (int i = 0; i < readBytes; i++)
 		{
-			/*if (mRxBufferSize - mUnReadDataSize < readBytes)
-			{
-				std::cerr << "受信データをバッファに書き込めません." << std::endl;
-			}*/
-			if (mRxBufLength + 1 >= mRxBufferSize)
-			{
-				mRxBufLength = 0;
-			}
-			memcpy_s(mRxBuffer + mRxBufLength, mRxBufferSize - mRxBufLength, tempBuffer, readBytes);
-			mRxBufLength += readBytes;
+			mRingBuf.push_front(tempBuffer[i]);
+			//cout << mRingBuf.size();
 		}
 		mutex.unlock();
 	}
 }
 
 
-int SerialCom::open(int aSerialPortNum, int aBoundRate)
+int SerialCom::open(char *aPort, int aBoundRate)
 {
 	std::cout << "シリアルポートを開いています..." << std::endl;
 	if (mComState == OPEN)
@@ -80,18 +74,26 @@ int SerialCom::open(int aSerialPortNum, int aBoundRate)
 		return -1;
 	}
 
-	mSerialPortNum = aSerialPortNum;
+	//mSerialPortNum = aSerialPortNum;
 	mBoundRate = aBoundRate;
 
 	/* COMポートを開く */
-	std::string portName("COM");
-	portName += std::to_string(aSerialPortNum);
-	if ((mPortHandle = CreateFile((LPCTSTR)(portName.c_str()),
+	//std::string portName("COM");
+	//portName += std::to_string(aSerialPortNum);
+	TCHAR portName[255];
+/*#ifdef UNICODE
+	MultiByteToWideChar(CP_OEMCP, MB_PRECOMPOSED, aPort, strlen(aPort), portName, (sizeof portName) / 2);
+#else
+	strcpy(portName, aPort);
+#endif*/
+	//if ((mPortHandle = CreateFile(portName,
+	if ((mPortHandle = CreateFile("COM6",
+	//if ((mPortHandle = CreateFile(_T("\\\\.\\COM3"),
 		GENERIC_READ | GENERIC_WRITE,
-		0, NULL, OPEN_EXISTING, 0, NULL))
+		0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL))
 		== INVALID_HANDLE_VALUE)
 	{
-		std::cerr << "ポートを開くことができません.ポート番号を確認してください." << std::endl;
+		std::cerr << "ポートを開くことができません." << std::endl;
 		DWORD errorCode = GetLastError();
 		std::cerr << errorCode << std::endl;
 		return -1;
@@ -101,6 +103,9 @@ int SerialCom::open(int aSerialPortNum, int aBoundRate)
 	DCB config;
 	GetCommState(mPortHandle, &config);
 	config.BaudRate = mBoundRate;
+	config.ByteSize = 8;
+	config.StopBits = ONESTOPBIT;
+	config.fParity = NOPARITY;
 	SetCommState(mPortHandle, &config);
 
 	/* 通信のタイムアウト設定 */
@@ -157,9 +162,14 @@ int SerialCom::sendArray(unsigned char *aTxData, int aTxDataSize)
 {
 	int wroteBytes;
 	int count = 0;
-	while (count >= aTxDataSize)
+	while (count < aTxDataSize)
 	{
-		WriteFile(mPortHandle, aTxData, aTxDataSize - count, (LPDWORD)(&wroteBytes), NULL);
+		//cout << "a";
+		WriteFile(mPortHandle, aTxData + count, aTxDataSize - count, (LPDWORD)(&wroteBytes), NULL);
+		/*int e = GetLastError();
+		cout << e;
+		cout << "b";
+		cout << wroteBytes << endl;*/
 		count += wroteBytes;
 	}
 	return 0;
@@ -168,13 +178,13 @@ int SerialCom::sendArray(unsigned char *aTxData, int aTxDataSize)
 
 int SerialCom::sendChar(unsigned char aTxChar)
 {
-	mutex.lock();
+	//mutex.lock();
 	int wroteByte = 0;
 	while (wroteByte == 0)
 	{
 		WriteFile(mPortHandle, &aTxChar, 1, (LPDWORD)(&wroteByte), NULL);
 	}
-	mutex.unlock();
+	//mutex.unlock();
 	return 0;
 }
 
@@ -185,21 +195,68 @@ int SerialCom::readRxBuffer(unsigned char *aReadBuffer, int aReadBufferSize)
 	int readSize;
 	mutex.lock();
 
-	if (mRxBufLength == 0)
+	/*if (mRxBufLength == 0)
 	{
 		mutex.unlock();
 		return 0;
+	}*/
+	//memcpy_s(aReadBuffer, aReadBufferSize, mRxBuffer, mRxBufLength);
+	//int length = mRxBufLength;
+	int ret = mRingBuf.size();
+	//cout << ret << endl;
+	int length = ret;
+	for (int i = 0; i < aReadBufferSize; i++)
+	{
+		if (length == 0) break;
+		aReadBuffer[i] = mRingBuf[--length];
+		mRingBuf.pop_back();
 	}
-	memcpy_s(aReadBuffer, aReadBufferSize, mRxBuffer, mRxBufLength);
-	int length = mRxBufLength;
-	mRxBufLength = 0;
+	//mRxBufLength = 0;
 	mutex.unlock();
-	return length;
+	return ret;
+}
+
+
+bool SerialCom::getLastRxData(unsigned char& aCommand, unsigned short& aData)
+{
+	bool ret = false;
+	int len = mRingBuf.size();
+	int i;
+	for (i = 4; i < len; i++)
+	{
+		if (mRingBuf[i] == 0x55)
+		{
+			aCommand = mRingBuf[i-1];
+			aData = (unsigned short)mRingBuf[i - 3] << 8 | (unsigned short)mRingBuf[i - 2];
+			printf("RECEIVED:    [0:%4x] [1:%4x] [2:%4x] [3:%4x] [4:%4x]\n",
+				0x55,
+				mRingBuf[i-1],
+				mRingBuf[i-2],
+				mRingBuf[i-3],
+				mRingBuf[i-4]
+				);
+			ret = true;
+			break;
+		}
+	}
+	if (!ret)
+	{
+		return false;
+	}
+	//printf("%d\n", len);
+	for (int j = 0; j < len - (i - 4); j++)
+	{
+		//printf("a");
+		mRingBuf.pop_back();
+	}
+	
+	return true;
 }
 
 
 int SerialCom::clearRxBuffer()
 {
+	mRingBuf.clear();
 	return 0;
 }
 

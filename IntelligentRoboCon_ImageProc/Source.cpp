@@ -9,104 +9,138 @@
 #include "BallDetect.h"			/* ボール認識処理 */
 #include "IntelligentRobo.h"	/* ロボットの思考 */
 
+using namespace std;
+using namespace cv;
+
 /* 真ん中と判断するのに用いるマージン */
 #define CENTER_MARGIN_PX 6
 
 #define COMBUF_SIZE 255
 
+/* オプションでどれかひとつお選びいただけます */
+#define OVERALL
+//#define COLOR_TEST
+//#define IMGPROC_TEST
 
-void colorTest(cv::Mat& aSorce)
+
+void setThreshData(ThreshData& aRed, ThreshData& aBlue, ThreshData& aYellow)
 {
+	aRed.hueUpper = 15;
+	aRed.hueLower = 170;
+	aRed.satUpper = 255;
+	aRed.satLower = 60;
+	aRed.valUpper = 255;
+	aRed.valLower = 80;
+
+	aBlue.hueUpper = 120;
+	aBlue.hueLower = 100;
+	aBlue.satUpper = 255;
+	aBlue.satLower = 150;
+	aBlue.valUpper = 255;
+	aBlue.valLower = 30;
+
+	aYellow.hueUpper = 40;
+	aYellow.hueLower = 13;
+	aYellow.satUpper = 255;
+	aYellow.satLower = 100;
+	aYellow.valUpper = 255;
+	aYellow.valLower = 50;
+}
+
+#ifdef COLOR_TEST
+void colorTest(cv::Mat& aSorce, BallDetect& detect, ThreshData& aRed, ThreshData& aBlue, ThreshData& aYellow)
+{
+	Ball balls[32];
+	int numOfBalls;
 	std::vector<cv::Mat> channel;
-	cv::Mat hsvImg, hue1, hue2, hue, saturation1, saturation2, saturation, value1, value2, value, hue_saturation;
+	cv::Mat hsvImg, binRed, binBlue, binYellow;
 	cv::cvtColor(aSorce, hsvImg, CV_BGR2HSV);
 	cv::Point center(aSorce.cols / 2, aSorce.rows / 2);
 	cv::circle(aSorce, center, 20, cv::Scalar(0, 0, 255));
 	cv::split(hsvImg, channel);
 	printf("%4d %4d %4d\n", 
 		channel[0].at<unsigned char>(center), channel[1].at<unsigned char>(center), channel[2].at<unsigned char>(center));
+	detect.threshold(aSorce, binRed, aRed);
+	imshow("red", binRed);
+	//detect.getBallData(binRed, balls, numOfBalls);
+	//chooseBall(balls, numOfBalls, x, y);
+
+	detect.threshold(aSorce, binBlue, aBlue);
+	imshow("blue", binBlue);
+	detect.threshold(aSorce, binYellow, aYellow);
+	imshow("yellow", binYellow);
 }
+#endif
+
+#ifdef IMGPROC_TEST
+void lineTraceTest(Mat& aSrc, Mat& aDst)
+{
+	int line1 = 0, line2 = 0;
+	threshBin(aSrc, aDst, 64);
+	senseLine(aSrc, aDst, line1, line2);
+	int diff = line1 - line2;
+	const int lineDist = LINE_CHECK_DIST_1 - LINE_CHECK_DIST_2;
+	double inclination = diff != 0 ? ((double)diff / (double)lineDist) : 0;
+	cout << inclination << endl;
+}
+#endif /* IMGPROC_TEST */
 
 int main(int argc, const char* argv[])
 {
-	cv::Mat src, img, gray, binRed, binBlue, binYellow;
+	//cv::Mat src, img, gray, binRed, binBlue, binYellow;
+	cv::Mat src, dst;
 
-	cv::VideoCapture cap(0);
+	ThreshData threshRed;
+	ThreshData threshBlue;
+	ThreshData threshYellow;
+	setThreshData(threshRed, threshBlue, threshYellow);
+
+	cv::VideoCapture cap(2);
 	if (!cap.isOpened()){
 		return -1;
 	}
 	cap.set(CV_CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH_PX);
 	cap.set(CV_CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT_PX);
 
-	BallData ballRed[10];
-	BallData ballBlue[10];
-	BallData ballYellow[10];
-	ThreshData threshRed = { 0 };
-	threshRed.hueUpper = 6;
-	threshRed.hueLower = 170;
-	threshRed.satUpper = 255;
-	threshRed.satLower = 60;
-	threshRed.valUpper = 255;
-	threshRed.valLower = 80;
-	ThreshData threshBlue = { 0 };
-	threshBlue.hueUpper = 120;
-	threshBlue.hueLower = 100;
-	threshBlue.satUpper = 255;
-	threshBlue.satLower = 160;
-	threshBlue.valUpper = 255;
-	threshBlue.valLower = 50;
-	ThreshData threshYellow = { 0 };
-	threshYellow.hueUpper = 40;
-	threshYellow.hueLower = 13;
-	threshYellow.satUpper = 220;
-	threshYellow.satLower = 50;
-	threshYellow.valUpper = 255;
-	threshYellow.valLower = 50;
+	//BallDetect detect(10, 200);
 
-	BallDetect detect(10, 200);
-
-	cv::namedWindow("result", cv::WINDOW_AUTOSIZE);
+#ifdef OVERALL
+	IntelligentRobo robot(threshRed, threshBlue, threshYellow);
+	robot.openCon();
 	cv::namedWindow("red", cv::WINDOW_AUTOSIZE);
 	cv::namedWindow("blue", cv::WINDOW_AUTOSIZE);
-	cv::namedWindow("yellow", cv::WINDOW_AUTOSIZE);
-
-	IntelligentRobo robot;
+	cv:: namedWindow("yellow", cv::WINDOW_AUTOSIZE);
+#endif /* OVERALL */
+#ifdef COLOR_TEST
+	namedWindow("red", WINDOW_AUTOSIZE);
+	namedWindow("blue", WINDOW_AUTOSIZE);
+	namedWindow("yellow", WINDOW_AUTOSIZE);
+	BallDetect detect(10, 200);
+#endif
+	cv::namedWindow("result", cv::WINDOW_AUTOSIZE);
 
 	int numOfRed = 0, numOfYellow = 0, numOfBlue = 0;
 	while (true){
 		cap >> src;
+		/*
 		detect.threshold(src, binRed, threshRed);
 		detect.threshold(src, binBlue, threshBlue);
 		detect.threshold(src, binYellow, threshYellow);
 		detect.getBallData(binRed, ballRed, numOfRed, &src);
 		detect.getBallData(binBlue, ballBlue, numOfBlue, &src);
-		detect.getBallData(binYellow, ballYellow, numOfYellow, &src);
-		
-		// 各色から一番大きいのを選ぶ
-		BallData *maxBall = NULL;
-		if (numOfRed) { maxBall = ballRed; }
-		if (numOfBlue && maxBall != NULL)
-		{
-			if (maxBall->numOfPixels < ballBlue[0].numOfPixels)
-			{
-				maxBall = ballBlue;
-			}
-		}
-		if (numOfYellow && maxBall != NULL)
-		{
-			if (maxBall->numOfPixels < ballYellow[0].numOfPixels)
-			{
-				maxBall = ballYellow;
-			}
-		}
-		
-		robot.intelligence(maxBall, (maxBall != NULL) ? 1:0);
-		//colorTest(src);
-		robot.drawMark(src);
-		cv::imshow("result", src);
-		cv::imshow("red", binRed);
-		cv::imshow("blue", binBlue);
-		//cv::imshow("yellow", binYellow);
+		detect.getBallData(binYellow, ballYellow, numOfYellow, &src);*/
+#ifdef OVERALL
+		robot.intelligence(src);
+#endif /* OVERALL */
+#ifdef COLOR_TEST
+		colorTest(src, detect, threshRed, threshBlue, threshYellow);
+#endif /* COLOR_TEST */
+#ifdef IMGPROC_TEST
+		lineTraceTest(src, dst);
+		imshow("red", dst);
+#endif /* IMGPROC_TEST */
+
+		imshow("result", src);
 		if (cv::waitKey(1) >= 0) break;
 	}
 	cv::destroyAllWindows();

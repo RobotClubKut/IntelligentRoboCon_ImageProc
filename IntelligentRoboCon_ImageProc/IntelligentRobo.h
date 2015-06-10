@@ -1,40 +1,100 @@
 #pragma once
 #include "BallDetect.h"
 #include "SerialCom.h"			/* 通信 */
+#include "MyTypedef.h"
+
+/* 通信しない*/
+//#define UNUSE_COM
+
+/* デバッグオプション的な何か */
+#define DEBUG
+//#define DEBUG_TRANSMITTED_DATA
+//#define DEBUG_RECEIVED_DATA
+//#define DEBUG_LINE_TRACE
+//#define DEBUG_APPROACH
+//#define DEBUG_SEEK
+//#define DEBUG_SHOOT
+//#define DEBUG_MODEVAL
+#define DEBUG_TAKE
 
 /* カメラ */
 #define CAMERA_WIDTH_PX 320
 #define CAMERA_HEIGHT_PX 240
 
 /* ボールが正面にあるか否かを判断する範囲 マージン */
-#define FRONT_MARGIN_PX 18
+#define FRONT_MARGIN_PX 10
 
 /* 取るボールのy座標とマージン */
-#define TAKE_YPOS_PX 50
+#define TAKE_YPOS_PX 10
 #define TAKE_YPOS_MARGIN_PX 10
 
 /* ボールを探す時の旋回する角度 */
 #define SEARCHING_ANGLE 45
 
+/* 黒と判断する閾値 */
+#define LINE_BLACK 32
+
 /* RxFlag */
 #define UNREAD  0x01
 #define WAITING 0x02
-#define ERROR   0x04
+
+/* ライントレース */
+#define LINE_CHECK_WIDTH  140
+//#define LINE_CHECK_WIDTH 180
+#define LINE_CHECK_DIST_1 170
+#define LINE_CHECK_DIST_2 130
+
+/* ボール拾い */
+#define TAKE_SUCCESS		1
+#define TAKE_FAILED			2
+#define TAKE_YELLOW_BALL	0
+#define TAKE_RED_BALL		1
+#define TAKE_BLUE_BALL		2
+
+/* ボールの色 */
+#define BALL_YELLOW			0
+#define BALL_RED			1
+#define	BALL_BLUE			2
+
+/* 取りに */
+#define APPROACH_DIST 220
 
 
-typedef unsigned char uint8;
-typedef unsigned short uint16;
+#define NEXT_MODE Mode
+
+
+
+/* ライントレース用の関数 */
+void threshBin(const Mat aSrc, Mat& aDst, int thresh);
+void senseLine(Mat& aSrc, Mat& aBinImg, int& line1, int& line2);
+void senseLine2(Mat& aSrc, Mat& aBinImg, int *aLine, int aNum, int aSpace);
+int senseCurveLine(Mat& aSrc, Mat& aBinImg);
+bool senseLine3(Mat& aSrc, Mat& aBinImg, int& line1, int& line2);
+
 
 /* 命令の出し方 */
 enum Mode
 {
-	INITIAL = 0,
+	INIT = 1,
 	SHOOTING_TENNIS_BALL,
 	LINE_TRACE,
-	SEARCHING,
+	SEEK,
 	APPROACH,
 	CATCH,
 	SHOOT,
+	MOVE,
+	FIN,
+};
+
+enum EMoveCommand
+{
+	MV_STOP = 1,
+	MV_RIGHT,
+	MV_LEFT,
+	MV_FORWARD,
+	MV_BACKWARD,
+	MV_ROLLRIGHT,
+	MV_ROLLLEFT,
 };
 
 /*
@@ -65,7 +125,8 @@ typedef enum
 	RED = 0,
 	YELLOW,
 	BLUE,
-}Color;
+	TENNIS,
+}Ball;
 
 typedef enum
 {
@@ -115,7 +176,7 @@ typedef union
 	struct
 	{
 		Mode modeSelect : 2;
-		Color color : 2;
+		Ball ball : 2;
 		StateCatch stateCatch : 2;
 		uint8 pad : 2;
 	}CatchMode;
@@ -133,10 +194,13 @@ typedef union
 class IntelligentRobo
 {
 public:
-	IntelligentRobo();
+	IntelligentRobo(ThreshData& aRed, ThreshData& aBlue, ThreshData& aYellow);
 	~IntelligentRobo();
-	int intelligence(const BallData aBalls[], int aNumOfBall);
-	void drawMark(cv::Mat& aImg);
+	int openCon();
+	//int intelligence(const BallData aBalls[], int aNumOfBall);
+	int intelligence(Mat& aSrc);
+	void drawMark(Mat& aImg);
+	//void chooseBall(BallData *balls, int& numOfBalls, int& x, int& y);
 private:
 	SerialCom *mSerial;
 	int mCameraWidth;
@@ -147,21 +211,40 @@ private:
 	unsigned char mRxFlag;
 	unsigned char mTxFlag;
 
+	int mRed;
+	int mBlue;
+	int mYellow;
+
+	int mColor;
+	bool mNonBallFlag;
+
 	Mode mMode;
+	int mState;
+	int mSeekState;
+	//uint8 mMode;
 
 	int mNumOfTookBalls;
 
-	void cvtCamera2Robot(int& ax, int& ay);
-	void approachTheBall(const BallData aBalls[], int aNumOfBalls, TransmitData& aTxData);
-	void lineTrace(TransmitData& aTxData);
-	void takeTheBall(TransmitData& aTxData);
-	void shoot(TransmitData& aTxData);
+	BallData *ballRed;
+	BallData *ballBlue;
+	BallData *ballYellow;
+	ThreshData mThreshRed;
+	ThreshData mThreshBlue;
+	ThreshData mThreshYellow;
+	BallDetect *detect;
 
-	//new
-	int searching();
+	void cvtCamera2Robot(int& ax, int& ay);
+	double chooseBall(BallData *balls, int& numOfBalls, int& x, int& y);
+	//void approachTheBall(const BallData aBalls[], int aNumOfBalls, TransmitData& aTxData);
+	NEXT_MODE approachTheBall(Mat& aSrc, uint16& txData);
+	NEXT_MODE lineTrace(Mat& aSrc, uint16& aRxData, uint16& aTxData);
+	NEXT_MODE seek(Mat& aSrc, uint16 aRxData, uint16& aTxData);
+	NEXT_MODE takeTheBall(uint16 aRxData, uint16& aTxData);
+	NEXT_MODE shoot(Mat& aSrc, uint16 aRxData, uint16& aTxData);
+
+	// 通信
 	void setTxData(uint8 aMode, uint16 aData);
 	bool getRxData(uint8& aMode, uint16& aData);
-	//void filteringOutside(const BallDetect& aYellow, cv::Mat& aDst);
 
 	// 受信後に一時的にいれておくバッファ的な
 	uint8 *mRxBuffer;

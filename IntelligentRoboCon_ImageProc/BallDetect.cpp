@@ -19,12 +19,12 @@ BallDetect::~BallDetect()
 
 }
 
-void BallDetect::getBallData(const cv::Mat& aSorce, BallData aResult[], int& aNumOfBalls)
+/*void BallDetect::getBallData(cv::Mat& aSorce, BallData aResult[], int& aNumOfBalls)
 {
 	BallDetect::getBallData(aSorce, aResult, aNumOfBalls, NULL);
-}
+}*/
 
-void BallDetect::getBallData(const cv::Mat& aSorce, BallData aResult[], int& aNumOfBall, cv::Mat *aResultImg)
+void BallDetect::getBallData(cv::Mat& aSorce, BallData aResult[], int& aNumOfBall, cv::Mat& aResultImg)
 {
 	cv::Mat labelImage(aSorce.size(), CV_16SC1);
 	int detectedBallCounter = 0;
@@ -34,9 +34,11 @@ void BallDetect::getBallData(const cv::Mat& aSorce, BallData aResult[], int& aNu
 	for (int i = 0; i < label.GetNumOfResultRegions(); i++)
 	{
 		RegionInfoBS *regioninfo = label.GetResultRegionInfo(i);
-		int x1, x2, y1, y2;
+		int x1, x2, y1, y2, w, h;
 		regioninfo->GetMin(x1, y1);
 		regioninfo->GetMax(x2, y2);
+		w = x2 - x1;
+		h = y2 - y1;
 		float x, y;
 		regioninfo->GetCenter(x, y);
 		int center_x = (int)x;
@@ -97,42 +99,37 @@ void BallDetect::getBallData(const cv::Mat& aSorce, BallData aResult[], int& aNu
 		}
 		ball_height += center_y - check_y;
 
-		if (abs(ball_width - ball_height) < (ball_width + ball_height) >> 3)
+		if (abs(ball_width - ball_height) < (ball_width + ball_height) >> 3 
+			&& abs(w - ball_width) < 10
+			&& abs(h - ball_height) < 10)
 		{
 			//ボールとする
 			aResult[detectedBallCounter].x = center_x;
 			aResult[detectedBallCounter].y = center_y;
 			aResult[detectedBallCounter].diameter = (ball_height+ball_width)/2;
 			aResult[detectedBallCounter].numOfPixels = regioninfo->GetNumOfPixels();
+			
+			// ボールの位置を四角で囲む
+			cv::rectangle(aResultImg, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(0, 0, 255));
+			/*if (aResultImg != NULL)
+			{
+				cv::rectangle(aResultImg, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(0, 0, 255));
+			}
+			else{
+				cv::rectangle(aSorce, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(0, 0, 255));
+			}*/
+
+			// 探すボールはひとつだけ
 			detectedBallCounter++;
 			if (mLimitOfBall <= detectedBallCounter)
 			{
 				break;
 			}
-			if (aResultImg != NULL)
-			{
-				cv::rectangle(*aResultImg, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(0, 0, 255));
-			}
-			break;
 		}
 	}
 	aNumOfBall = detectedBallCounter;
 	//cv::imshow("result", *mResultImg);
 }
-
-#define BLUE_HUE_THRESH_UPPER 120
-#define BLUE_HUE_THRESH_LOWER 100
-#define BLUE_SATURATION_THRESH_UPPER 255
-#define BLUE_SATURATION_THRESH_LOWER 245
-#define BLUE_VALUE_THRESH_UPPER 255
-#define BLUE_VALUE_THRESH_LOWER 0
-
-#define YELLOW_HUE_THRESH_UPPER 35
-#define YELLOW_HUE_THRESH_LOWER 20
-#define YELLOW_SATURATION_THRESH_UPPER 190
-#define YELLOW_SATURATION_THRESH_LOWER 40
-#define YELLOW_VALUE_THRESH_UPPER 255
-#define YELLOW_VALUE_THRESH_LOWER 110
 
 
 void BallDetect::threshold(const cv::Mat& aSorce, cv::Mat& aDest, const ThreshData& thresh)
