@@ -100,6 +100,7 @@ cv::Mat fillOutside(int y0, int y1Acv::Mat src){
 			}
 		}
 	}
+	return src;
 }
 
 int main(int argc, const char* argv[])
